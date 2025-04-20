@@ -39,7 +39,7 @@ def visualize_detections(result, save_path="image.png"):
         conf = box.conf[0]
         cls = int(box.cls[0])
 
-        label = f"Book {idx}: {conf:.2f}"
+        label = f"Book {idx+1}: {conf:.2f}"
         ax.plot([x1, x2, x2, x1, x1], [y1, y1, y2, y2, y1], 'r-', lw=2)
         ax.text(x1, y1 - 10, label, color='white', fontsize=12,
                 bbox=dict(facecolor='red', alpha=0.5))

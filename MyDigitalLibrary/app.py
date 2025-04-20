@@ -33,13 +33,12 @@ if uploaded_file:
             st.image(Image.open('image.png'), caption="📸 Uploaded Bookshelf", use_container_width=True)
             for book in book_info:
                 st.markdown(f"""
-                ---
-                📘 **Region ID:** {book['id']}  
-                🔍 **Confidence:** {book['confidence']}%  
-                🎯 **Title Similarity:** {book.get('title_similarity', 'N/A')}  
-                📖 **Title:** `{book.get('title', '')}`  
-                ✍️ **Author:** `{book.get('author')}`
-                """)
+                    ---
+                    📘 **Book ID:** {int(book['id']) + 1}  
+                    📖 **Title** ({book.get('title_similarity', 'N/A')}): `{book.get('title', '')}`  
+                    ✍️ **Author:** `{book.get('author', 'Unknown')}`  
+                    🔍 **Confidence:** {book['confidence']}%
+                    """)
 
     
         else:
