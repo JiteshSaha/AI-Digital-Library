@@ -325,12 +325,9 @@ def run_book_stacking(image_path):
 
 
 
-
-
-
 if __name__ == "__main__":
 
-    image_path = "books.png"
+    image_path = "assets/sample_bookshelf.png"
 
 
     book_info, _ = run_book_stacking(image_path)
