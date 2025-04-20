@@ -22,11 +22,9 @@ def run_book_spine_detection(img_path):
 import matplotlib.pyplot as plt
 import cv2
 
-def visualize_detections(result, save_path="image.png"):
+def visualize_detections(result, book_info, save_path="image.png"):
 
     logger.debug(result)
-    boxes = result.boxes
-    names = result.names
     orig_img = result.orig_img
 
     fig, ax = plt.subplots(figsize=(12, 8))
@@ -34,18 +32,18 @@ def visualize_detections(result, save_path="image.png"):
 
     book_count = 0
 
-    for idx, box in enumerate(boxes):
-        x1, y1, x2, y2 = box.xyxy[0]
-        conf = box.conf[0]
-        cls = int(box.cls[0])
+    for idx, box in enumerate(book_info):
+                
+            x1, y1, x2, y2 = box['box']
+            conf = box['confidence']
 
-        label = f"Book {idx+1}: {conf:.2f}"
-        ax.plot([x1, x2, x2, x1, x1], [y1, y1, y2, y2, y1], 'r-', lw=2)
-        ax.text(x1, y1 - 10, label, color='white', fontsize=12,
+            label = f"Book {int(box['id'])+1}: {conf:.2f}"
+            ax.plot([x1, x2, x2, x1, x1], [y1, y1, y2, y2, y1], 'r-', lw=2)
+            ax.text(x1, y1 - 10, label, color='white', fontsize=12,
                 bbox=dict(facecolor='red', alpha=0.5))
 
-        if names[cls] == 'book':
             book_count += 1
+        # if names[cls] == 'book':
 
     logger.info(f"📚 Total detected books: {book_count}")
     plt.axis('off')
@@ -56,6 +54,53 @@ def visualize_detections(result, save_path="image.png"):
 
     # return save_path
 
+
+
+# def visualize_detections(result, save_path="image.png"):
+
+#     logger.debug(result)
+#     boxes = result.boxes
+#     names = result.names
+#     orig_img = result.orig_img
+
+#     fig, ax = plt.subplots(figsize=(12, 8))
+#     ax.imshow(cv2.cvtColor(orig_img, cv2.COLOR_BGR2RGB))
+
+#     book_count = 0
+
+#     for idx, box in enumerate(boxes):
+        
+        
+#         cls_id = int(box.cls[0])
+#         cls_name = names[cls_id]
+
+#         logger.info(cls_name)
+#         if cls_name == 'book':
+        
+#             x1, y1, x2, y2 = box.xyxy[0]
+#             conf = box.conf[0]
+#             cls = int(box.cls[0])
+
+#             label = f"Book {idx+1}: {conf:.2f}"
+#             ax.plot([x1, x2, x2, x1, x1], [y1, y1, y2, y2, y1], 'r-', lw=2)
+#             ax.text(x1, y1 - 10, label, color='white', fontsize=12,
+#                 bbox=dict(facecolor='red', alpha=0.5))
+
+#             book_count += 1
+#         # if names[cls] == 'book':
+
+#     logger.info(f"📚 Total detected books: {book_count}")
+#     plt.axis('off')
+    
+#     # Save figure to file
+#     plt.savefig(save_path, bbox_inches='tight', pad_inches=0.1)
+#     plt.close(fig)  # Close the figure to free memory
+
+#     # return save_path
+
+
+
+
 def extract_book_regions(results, target_class='book'):
     regions = []
     result = results[0]  # Assume one image
@@ -65,10 +110,12 @@ def extract_book_regions(results, target_class='book'):
 
     h, w, _ = image.shape
 
+    count = 0
     for box in boxes:
         cls_id = int(box.cls[0])
         cls_name = names[cls_id]
 
+        logger.info(cls_name)
         if cls_name == target_class:
             x1, y1, x2, y2 = map(int, box.xyxy[0])
 
@@ -77,11 +124,14 @@ def extract_book_regions(results, target_class='book'):
             x2, y2 = min(x2, w), min(y2, h)
 
             regions.append({
+                'id' : count,
                 'coordinates': (x1, y1, x2, y2),
                 'class': cls_name,
                 'confidence': float(box.conf[0]),
                 'image': image
             })
+
+            count += 1
 
     return regions
 
@@ -102,7 +152,7 @@ def run_easyocr_on_regions(regions):
         result_text = reader.readtext(crop, detail=0)
 
         ocr_results.append({
-            'region_index': idx,
+            'id': region['id'],
             'text': result_text,
             'confidence': region['confidence'],
             'box': region['coordinates']
@@ -236,7 +286,9 @@ from fuzzywuzzy import fuzz
 def search_google_books(query_list, api_key= API_KEY):
     query = " ".join(query_list)
 
-    url = f"https://www.googleapis.com/books/v1/volumes?q={query}&key={api_key}"
+    # url = f"https://www.googleapis.com/books/v1/volumes?q={query}&key={api_key}"
+    
+    url = f"https://www.googleapis.com/books/v1/volumes?q={query}"
     response = requests.get(url)
 
     if response.status_code == 200:
@@ -294,12 +346,13 @@ def get_books(ocr_output):
 
         # logger.info(f'{book_info=}')
         books.append({
-            'id': item['region_index'],
+            'id': item['id'],
             'confidence': round(item['confidence'] * 100, 2),
             'Raw OCR' : (item['text']),
-            'title': book_info.get('title', '') if book_info else None,
+            'title': book_info.get('title', item['text']) if book_info else None,
             'author': book_info.get('author', '') if book_info else None,
-            'title_similarity': book_info.get('title_similarity', '') if book_info else None
+            'title_similarity': book_info.get('title_similarity', '') if book_info else None,
+            'box' : item['box']
         })
 
     return books
@@ -316,21 +369,24 @@ def run_book_stacking(image_path):
     # Step 2: Extract bounding boxes for books
     book_regions = extract_book_regions(results)
 
+    logger.info(f'{book_regions=}')
+
     # Step 3: OCR on cropped regions
     ocr_output = run_easyocr_on_regions(book_regions)
 
     book_info = get_books(ocr_output)
 
-    return book_info , visualize_detections(results[0])
+    return book_info , visualize_detections(results[0], book_info)
 
 
 
 if __name__ == "__main__":
 
-    image_path = "assets/sample_bookshelf.png"
+    image_path = "assets/my-books.png"
 
 
     book_info, _ = run_book_stacking(image_path)
+    logger.debug(f'{book_info=}')
     for book in book_info:
         logger.info(f"\n📘 Region {book['id']} ({book['confidence']}%)")
         logger.info(f"📖 Title ({book.get('title_similarity','')}) = {book.get('title','')}")

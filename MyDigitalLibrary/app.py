@@ -30,12 +30,12 @@ if uploaded_file:
 
         if book_info:
             st.subheader(f"📖 Identified Books: {len(book_info)}")
-            st.image(Image.open('image.png'), caption="📸 Uploaded Bookshelf", use_container_width=True)
+            st.image(Image.open('image.png'), caption="📸 Detected Books", use_container_width=False)
             for book in book_info:
                 st.markdown(f"""
                     ---
                     📘 **Book ID:** {int(book['id']) + 1}  
-                    📖 **Title** ({book.get('title_similarity', 'N/A')}): `{book.get('title', '')}`  
+                    📖 **Title** ({book.get('title_similarity', 'N/A')}%): `{book.get('title', '')}`  
                     ✍️ **Author:** `{book.get('author', 'Unknown')}`  
                     🔍 **Confidence:** {book['confidence']}%
                     """)
