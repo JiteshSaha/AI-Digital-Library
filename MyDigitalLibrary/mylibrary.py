@@ -116,7 +116,7 @@ def extract_book_regions(results, target_class='book'):
         cls_name = names[cls_id]
 
         logger.info(cls_name)
-        if cls_name == target_class:
+        if cls_name == target_class and float(box.conf[0]) > 0.30 :
             x1, y1, x2, y2 = map(int, box.xyxy[0])
 
             # Bounds check
