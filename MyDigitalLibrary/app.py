@@ -37,7 +37,7 @@ if uploaded_file:
                     st.markdown(f"""
                         ---
                         📘 **Book ID:** {int(book['id']) + 1}  
-                        📖 **Title** ({book.get('title_similarity', 'N/A')}%): `{book.get('title', '')}`  
+                        📖 **Title** ({book.get('title_similarity', 0):.2f}): `{book.get('title', '')}`  
                         ✍️ **Author:** `{book.get('author', 'Unknown')}`  
                         🔍 **Confidence:** {book['confidence']}% \n
                         🔍 **RAW:** {", ".join(book['Raw OCR'])}

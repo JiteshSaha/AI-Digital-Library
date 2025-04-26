@@ -283,6 +283,18 @@ from fuzzywuzzy import fuzz
 import requests
 from fuzzywuzzy import fuzz
 
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+
+
+def compute_cosine_similarity(query, title):
+    vectorizer = TfidfVectorizer().fit([query, title])
+    tfidf_matrix = vectorizer.transform([query, title])
+    cosine_sim = cosine_similarity(tfidf_matrix[0:1], tfidf_matrix[1:2])
+    return cosine_sim[0][0]
+
+
+
 def search_google_books(query_list, api_key= API_KEY):
     query = " ".join(query_list)
 
@@ -305,13 +317,15 @@ def search_google_books(query_list, api_key= API_KEY):
             authors = item["volumeInfo"].get("authors", ["No author"])
             author = ", ".join(authors)
 
-            title_similarity = fuzz.partial_ratio(query.lower(), title.lower())
+            # title_similarity = fuzz.partial_ratio(query.lower(), title.lower())
+            title_similarity = compute_cosine_similarity(query, title)
 
             ranked_books.append({
                 "title": title,
                 "author": author,
                 "title_similarity": title_similarity
             })
+
 
         # Sort by similarity
         ranked_books.sort(key=lambda x: x["title_similarity"], reverse=True)
@@ -323,6 +337,9 @@ def search_google_books(query_list, api_key= API_KEY):
         # logger.info(f"✍️ Author: {top_book['author']}")
         # logger.info(f"📊 Title Similarity: {top_book['title_similarity']}")
 
+        
+        logger.info(f'\n{query=}')
+        logger.info(f'{ranked_books=}')
         return top_book
 
     else:
