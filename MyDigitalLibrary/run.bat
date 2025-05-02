@@ -1,7 +1,8 @@
 @echo off
-REM Replace 'your_env_name' with the name of your conda environment
-REM Replace 'app.py' with your Streamlit app file
+:: Activate the conda environment and run app.py
 
-CALL conda activate ai-dev-env
-streamlit run app.py
-PAUSE
+call conda activate flask-dev-env
+python main.py
+
+
+pause

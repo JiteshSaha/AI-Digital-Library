@@ -1,4 +1,6 @@
 import cv2
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from ultralytics import YOLO
 import easyocr
@@ -23,7 +25,6 @@ import matplotlib.pyplot as plt
 import cv2
 
 def visualize_detections(result, book_info, save_path="image.png"):
-
     logger.debug(result)
     orig_img = result.orig_img
 
@@ -52,7 +53,7 @@ def visualize_detections(result, book_info, save_path="image.png"):
     plt.savefig(save_path, bbox_inches='tight', pad_inches=0.1)
     plt.close(fig)  # Close the figure to free memory
 
-    # return save_path
+    return save_path
 
 
 
@@ -237,46 +238,6 @@ def generate_book_title(ocr_list):
 
     return generated_title
 
-
-import openai
-
-# Function to generate book title using GPT-3 or GPT-4
-def generate_book_title_with_gpt(ocr_list):
-    # Combine OCR list into a single string
-    raw_text = " ".join(map(str, ocr_list))
-
-    # Set up the OpenAI API key (replace 'your-api-key' with your actual key)
-    openai.api_key = "your-api-key"  # Add your OpenAI API key here
-
-    # Prompt to ask GPT to generate the book title
-    prompt = f"""
-    You are a book expert. The following text is from the spine of a book, but it's noisy and partial. Please guess the most probable book title based on this text:
-
-    Text: {raw_text}
-
-    Book Title:
-    """
-
-    try:
-        # Send the prompt to the GPT model (e.g., GPT-3 or GPT-4)
-        response = openai.Completion.create(
-            engine="text-davinci-003",  # Use the appropriate engine (davinci is for GPT-3, GPT-4 is another option)
-            prompt=prompt.strip(),
-            max_tokens=64,
-            n=1,
-            temperature=0.7,  # Controls randomness; adjust as necessary
-            stop=["\n"]  # Ensure the output stops when the book title is generated
-        )
-
-        # Get the book title from the response
-        book_title = response.choices[0].text.strip()
-        return book_title
-
-    except Exception as e:
-        logger.info(f"Error: {e}")
-        return None
-
-
 import requests
 import requests
 from fuzzywuzzy import fuzz
@@ -288,14 +249,23 @@ from sklearn.metrics.pairwise import cosine_similarity
 
 
 def compute_cosine_similarity(query, title):
-    vectorizer = TfidfVectorizer().fit([query, title])
-    tfidf_matrix = vectorizer.transform([query, title])
-    cosine_sim = cosine_similarity(tfidf_matrix[0:1], tfidf_matrix[1:2])
-    return cosine_sim[0][0]
+    try:
+        vectorizer = TfidfVectorizer().fit([query, title])
+        tfidf_matrix = vectorizer.transform([query, title])
+        cosine_sim = cosine_similarity(tfidf_matrix[0:1], tfidf_matrix[1:2])
+        return cosine_sim[0][0]
+    
+    except ValueError as ve:
+        return 0
 
 
 
 def search_google_books(query_list, api_key= API_KEY):
+    
+    if not query_list:
+        return None
+    
+    
     query = " ".join(query_list)
 
     # url = f"https://www.googleapis.com/books/v1/volumes?q={query}&key={api_key}"
@@ -358,31 +328,30 @@ def get_books(ocr_output):
     books = []
     for item in ocr_output:
         # logger.info(f"🔲 Box: {item['box']}")
-        book_info = search_google_books(item['text'])
-   
+        book_info = search_google_books(item['text']) 
 
-        # logger.info(f'{book_info=}')
-        books.append({
-            'id': item['id'],
-            'confidence': round(item['confidence'] * 100, 2),
-            'Raw OCR' : (item['text']),
-            'title': book_info.get('title', item['text']) if book_info else None,
-            'author': book_info.get('author', '') if book_info else None,
-            'title_similarity': book_info.get('title_similarity', '') if book_info else None,
-            'box' : item['box']
-        })
+        if book_info:
+            # logger.info(f'{book_info=}')
+            books.append({
+                'id': item['id'],
+                'confidence': round(item['confidence'] * 100, 2),
+                'Raw OCR' : (item['text']),
+                'title': book_info.get('title', item['text']) if book_info else None,
+                'author': book_info.get('author', '') if book_info else None,
+                'title_similarity': book_info.get('title_similarity', '') if book_info else None,
+                'box' : item['box']
+            })
 
     return books
 # ---------------------------- Main Pipeline ----------------------------
 
 
-def run_book_stacking(image_path):
+def run_book_stacking(image_path , out_img_path = "./output.png"):
 
    
     # Step 1: Detect books
     results = run_book_spine_detection(image_path)
     
-
     # Step 2: Extract bounding boxes for books
     book_regions = extract_book_regions(results)
 
@@ -392,18 +361,22 @@ def run_book_stacking(image_path):
     ocr_output = run_easyocr_on_regions(book_regions)
 
     book_info = get_books(ocr_output)
+    marked_img  = visualize_detections(results[0], book_info , out_img_path)
 
-    return book_info , visualize_detections(results[0], book_info)
+    logger.info(f'{marked_img=}{image_path=}')
+    return book_info ,  marked_img , image_path 
 
 
 
 if __name__ == "__main__":
 
-    image_path = "assets/my-books.png"
+    image_path = "static/assets/should-probably-get-a-book-shelf-any-suggestions-v0-lu2gomvofbod1.webp"
 
 
-    book_info, _ = run_book_stacking(image_path)
+    book_info,_, paths = run_book_stacking(image_path)
+    
     logger.debug(f'{book_info=}')
+    logger.debug(f'{paths=}')
     for book in book_info:
         logger.info(f"\n📘 Region {book['id']} ({book['confidence']}%)")
         logger.info(f"📖 Title ({book.get('title_similarity','')}) = {book.get('title','')}")
